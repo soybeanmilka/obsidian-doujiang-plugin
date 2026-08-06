@@ -1,0 +1,6 @@
+# 用户数据（含个人统计、待办），绝不发布
+data.json
+
+# 系统文件
+.DS_Store
+Thumbs.db

@@ -1,0 +1,778 @@
+/* ======================================================
+   定义极简高级感配色方案 (高反差设计)
+====================================================== */
+.theme-dark { 
+    --capsule-bg: #F5F4F0; 
+    --capsule-text: #5C544B; 
+    --capsule-border: rgba(92, 84, 75, 0.12); 
+    --capsule-hover-start: #64b5f6; 
+    --capsule-hover-close: #e57373; 
+}
+
+
+.theme-light { 
+    --capsule-bg: #424242; 
+    --capsule-text: #D4D0C8; 
+    --capsule-border: rgba(212, 208, 200, 0.1); 
+    --capsule-hover-start: #64b5f6; 
+    --capsule-hover-close: #e57373; 
+}
+
+/* ======================================================
+   1. 胶囊主容器
+====================================================== */
+.timer-floating-window { 
+    position: fixed; 
+    /* 注：已移除 top, left, transform，交由 JS 控制以保证拖拽平滑且能记住位置 */
+    
+    background-color: var(--capsule-bg);
+    color: var(--capsule-text);
+    border: 1px solid var(--capsule-border);
+    border-radius: 999px; 
+    box-shadow: none; 
+    
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    height: 48px; 
+    
+    z-index: 9999;
+    cursor: grab;
+    user-select: none;
+    overflow: hidden; 
+    
+    /* 移除 backdrop-filter：Windows 下会在圆角外留下暗色矩形残影（黑边） */
+    
+    /* 添加平滑过渡，防止初始化时闪烁 */
+    transition: box-shadow 0.2s ease, opacity 0.2s ease;
+    visibility: hidden; /* JS 计算完坐标后再显示 */
+}
+
+.timer-floating-window.is-dragging { 
+    cursor: grabbing; 
+    opacity: 0.85;
+    box-shadow: 2px 5px 10px rgba(0, 0, 0, 0.3); 
+}
+
+/* ======================================================
+   2. 中间提示文字
+====================================================== */
+.timer-floating-window-text { 
+    font-size: 15px; 
+    font-weight: 500;
+    padding: 0 10px; 
+    white-space: nowrap; 
+    letter-spacing: 0.5px; 
+}
+
+/* ======================================================
+   3. 左右两侧按钮通用样式
+====================================================== */
+.timer-floating-window .timer-btn {
+    background: transparent ; 
+    color: var(--capsule-text) ; 
+    border: none ;
+    outline: none ;
+    box-shadow: none ; 
+    border-radius: 0 ;
+    
+    height: 100%;
+    padding: 0 20px ;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.timer-floating-window .timer-btn:focus,
+.timer-floating-window .timer-btn:focus-visible { 
+    outline: none ; 
+    box-shadow: none ; 
+}
+
+.timer-floating-window .timer-btn svg { 
+    width: 18px;
+    height: 18px; 
+    stroke-width: 2.2px; 
+    color: var(--capsule-text) ;
+    stroke: var(--capsule-text) ; 
+}
+
+.timer-floating-window .timer-btn:active svg { 
+    transform: scale(0.85); 
+}
+
+/* ======================================================
+   4. 按钮悬浮时的优雅变色
+====================================================== */
+.timer-floating-window .timer-btn-repeat:hover { 
+    background-color: var(--capsule-hover-start) ; 
+}
+.timer-floating-window .timer-btn-repeat:hover svg { 
+    color: #FFFFFF ; 
+    stroke: #FFFFFF ; 
+}
+
+.timer-floating-window .timer-btn-close:hover { 
+    background-color: var(--capsule-hover-close) ; 
+}
+.timer-floating-window .timer-btn-close:hover svg { 
+    color: #FFFFFF ; 
+    stroke: #FFFFFF ; 
+}
+
+.timer-floating-window .timer-btn-stop:hover { 
+    background-color: var(--capsule-hover-close) ; 
+}
+.timer-floating-window .timer-btn-stop:hover svg { 
+    color: #FFFFFF ; 
+    stroke: #FFFFFF ; 
+}
+
+/* ======================================================
+   番茄钟统计弹窗
+====================================================== */
+.timer-stats-modal { 
+    min-width: 340px; 
+    max-width: 380px; 
+}
+
+.timer-stats-modal h3 { 
+    margin: 0 0 10px; 
+}
+
+.timer-stats-section { 
+    margin-bottom: 10px; 
+}
+
+.timer-stats-section-title { 
+    font-size: 11px; 
+    font-weight: 600; 
+    opacity: 0.6; 
+    letter-spacing: 0.5px; 
+    margin-bottom: 5px; 
+}
+
+.timer-stats-modal .timer-stats-summary { 
+    display: flex; 
+    flex-direction: column; 
+    gap: 3px; 
+    font-size: 12px; 
+}
+
+.timer-stats-modal .timer-stats-times { 
+    opacity: 0.7; 
+    font-size: 12px; 
+}
+
+.timer-stats-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    height: 55px;
+    padding: 5px 2px 0;
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.timer-stats-bar-col { 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    justify-content: flex-end; 
+    flex: 1; 
+    height: 100%; 
+    gap: 3px; 
+}
+
+.timer-stats-bar {
+    width: 100%;
+    max-width: 18px;
+    min-height: 3px;
+    background: linear-gradient(180deg, #e57373, #c94f4f);
+    border-radius: 3px 3px 0 0;
+    transition: height 0.3s ease;
+}
+
+.timer-stats-bar-col.is-today .timer-stats-bar { 
+    background: linear-gradient(180deg, #ff8a80, #e53935); 
+    box-shadow: 0 0 8px rgba(229, 57, 53, 0.5); 
+}
+
+.timer-stats-bar-label { 
+    font-size: 11px; 
+    opacity: 0.7; 
+    white-space: nowrap; 
+}
+
+.timer-stats-total { 
+    font-weight: 600; 
+    line-height: 1.8; 
+    font-size: 12px; 
+}
+
+/* ======================================================
+   今日待办（紧凑）
+====================================================== */
+.timer-todo-input-row { 
+    display: flex; 
+    gap: 4px; 
+    margin-bottom: 5px; 
+}
+
+.timer-todo-input {
+    flex: 1;
+    min-width: 0;
+    padding: 3px 8px;
+    font-size: 12px;
+    background: var(--background-secondary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 5px;
+    color: var(--text-normal);
+}
+
+.timer-todo-input:focus { 
+    outline: none; 
+    border-color: var(--interactive-accent); 
+}
+
+.timer-todo-add-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 4px;
+    background: transparent;
+    border: none;
+    border-radius: 5px;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.timer-todo-add-btn:hover { 
+    color: var(--text-accent); 
+    background: var(--background-modifier-hover); 
+}
+
+.timer-todo-add-btn svg { 
+    width: 14px; 
+    height: 14px; 
+}
+
+.timer-todo-list { 
+    display: flex; 
+    flex-direction: column; 
+    gap: 2px; 
+    max-height: 140px; 
+    overflow-y: auto; 
+}
+
+.timer-todo-item { 
+    display: flex; 
+    align-items: center; 
+    gap: 6px; 
+    padding: 3px 6px; 
+    border-radius: 5px; 
+}
+
+.timer-todo-item:hover { 
+    background: var(--background-modifier-hover); 
+}
+
+.timer-todo-checkbox { 
+    flex: none; 
+    margin: 0; 
+    cursor: pointer; 
+}
+
+.timer-todo-text { 
+    flex: 1; 
+    min-width: 0; 
+    font-size: 12px; 
+    word-break: break-word; 
+}
+
+.timer-todo-item.is-done .timer-todo-text { 
+    text-decoration: line-through; 
+    opacity: 0.5; 
+}
+
+.timer-todo-del {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1px;
+    background: transparent;
+    border: none;
+    border-radius: 3px;
+    color: var(--text-muted);
+    cursor: pointer;
+    opacity: 0;
+}
+
+.timer-todo-item:hover .timer-todo-del { 
+    opacity: 0.6; 
+}
+
+.timer-todo-del:hover { 
+    opacity: 1; 
+    color: var(--text-error); 
+}
+
+.timer-todo-del svg { 
+    width: 12px; 
+    height: 12px; 
+}
+
+.timer-todo-empty { 
+    font-size: 11px; 
+    opacity: 0.45; 
+    padding: 4px 2px; 
+}
+
+.timer-todo-list::-webkit-scrollbar { 
+    width: 4px; 
+}
+
+.timer-todo-list::-webkit-scrollbar-thumb { 
+    background: var(--background-modifier-border); 
+    border-radius: 2px; 
+}
+
+.timer-todo-list::-webkit-scrollbar-track { 
+    background: transparent; 
+}
+
+/* ======================================================
+   番茄钟面板（待办 / 统计 / 日历）
+====================================================== */
+.timer-panel-modal { 
+    min-width: 360px; 
+    max-width: 420px; 
+}
+
+.timer-panel-control { 
+    display: flex; 
+    align-items: center; 
+    gap: 8px; 
+    margin-bottom: 10px; 
+}
+
+.timer-panel-start-btn {
+    padding: 4px 14px;
+    font-size: 12px;
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.timer-panel-start-btn:hover { 
+    filter: brightness(1.1); 
+}
+
+.timer-panel-start-btn.is-running { 
+    animation: timer-soft-pulse 1.4s ease-in-out infinite; 
+}
+
+.timer-panel-start-btn:active, .timer-panel-stop-btn:active, .timer-btn:active { 
+    transform: scale(0.94); 
+}
+
+.timer-panel-stop-btn {
+    padding: 4px 14px;
+    font-size: 12px;
+    background: var(--background-modifier-error);
+    color: var(--text-on-accent);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.timer-panel-stop-btn:hover { 
+    filter: brightness(1.1); 
+}
+
+.timer-panel-drag-handle { 
+    cursor: move; 
+    user-select: none; 
+}
+
+.timer-panel-time { 
+    flex: 1; 
+    font-weight: 600; 
+    font-size: 13px; 
+}
+
+.timer-progress {
+    height: 6px;
+    background: var(--background-modifier-border);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.timer-progress-fill {
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, #ff5f45, #ffa36c);
+    border-radius: 3px;
+    transition: width 0.5s ease;
+}
+
+.timer-progress-fill.is-paused { 
+    background: linear-gradient(90deg, #f5b942, #ffd98a); 
+}
+
+.timer-title-tomato {
+    display: inline-block;
+    animation: timer-wiggle 3s ease-in-out infinite;
+    transform-origin: 50% 80%;
+}
+
+.timer-title-tomato.is-excited { 
+    animation: timer-wiggle 1.2s ease-in-out infinite; 
+}
+
+.timer-ribbon-running svg {
+    animation: timer-icon-pulse 1.8s ease-in-out infinite;
+}
+
+.timer-alarm-pop {
+    animation: timer-alarm-bounce-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
+        timer-float 3s ease-in-out 1.2s infinite;
+}
+
+.timer-celebrate {
+    display: inline-block;
+    margin-right: 4px;
+    animation: timer-bounce 1.2s ease-in-out infinite;
+}
+
+@keyframes timer-bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-3px); }
+}
+
+@keyframes timer-wiggle {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-14deg) scale(1.1); }
+    75% { transform: rotate(14deg) scale(1.1); }
+}
+
+@keyframes timer-soft-pulse {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(1.2); }
+}
+
+@keyframes timer-icon-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.18); }
+}
+
+@keyframes timer-alarm-bounce-in {
+    0% { transform: scale(0.2) translateY(40px); opacity: 0; }
+    55% { transform: scale(1.1) translateY(-8px); opacity: 1; }
+    75% { transform: scale(0.97) translateY(2px); }
+    100% { transform: scale(1) translateY(0); }
+}
+
+@keyframes timer-float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .timer-title-tomato,
+    .timer-celebrate, .timer-alarm-pop,
+    .timer-ribbon-running svg, .timer-panel-start-btn.is-running {
+        animation: none !important;
+    }
+}
+
+.timer-panel-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: 5px;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.timer-panel-close:hover { 
+    color: var(--text-normal); 
+    background: var(--background-modifier-hover); 
+}
+
+.timer-panel-close svg { 
+    width: 14px; 
+    height: 14px; 
+}
+
+.timer-panel-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 3px;
+    background: var(--background-modifier-hover);
+    border-radius: 6px;
+    margin-bottom: 12px;
+}
+
+.timer-panel-tab {
+    flex: 1;
+    padding: 4px 0;
+    font-size: 12px;
+    color: var(--text-muted);
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.timer-panel-tab:hover { 
+    color: var(--text-normal); 
+}
+
+.timer-panel-tab.is-active { 
+    background: var(--background-primary); 
+    color: var(--text-accent); 
+    font-weight: 600; 
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15); 
+}
+
+.timer-panel-body { 
+    max-height: 62vh; 
+    overflow-y: auto; 
+    scrollbar-width: thin; 
+    scrollbar-color: var(--background-modifier-border) transparent; 
+}
+
+.timer-panel-body::-webkit-scrollbar { 
+    width: 4px; 
+}
+
+.timer-panel-body::-webkit-scrollbar-thumb { 
+    background: var(--background-modifier-border); 
+    border-radius: 2px; 
+}
+
+.timer-panel-body::-webkit-scrollbar-track { 
+    background: transparent; 
+}
+
+.timer-panel-body .timer-todo-list { 
+    max-height: 45vh; 
+}
+
+/* 日历：选中/圆点/可点击 */
+.timer-cal-cell { 
+    position: relative; 
+}
+
+.timer-cal-cell.is-clickable { 
+    cursor: pointer; 
+}
+
+.timer-cal-cell.is-selected { 
+    outline: 2px solid var(--interactive-accent); 
+}
+
+.timer-cal-dot {
+    position: absolute;
+    bottom: 2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #64b5f6;
+}
+
+/* 日历当天详情 */
+.timer-cal-detail {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid var(--background-modifier-border);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.timer-cal-detail-title { 
+    font-size: 12px; 
+    font-weight: 600; 
+}
+
+.timer-cal-detail-info { 
+    font-size: 11px; 
+    opacity: 0.7; 
+    margin-bottom: 4px; 
+}
+
+.timer-cal-detail-empty { 
+    font-size: 11px; 
+    opacity: 0.45; 
+    padding: 4px 0; 
+}
+
+.timer-cal-detail-hint { 
+    font-size: 11px; 
+    color: var(--text-accent); 
+    opacity: 0.85; 
+    margin-bottom: 2px; 
+}
+
+/* 待办计划日期 */
+.timer-todo-group-title { 
+    font-size: 11px; 
+    font-weight: 600; 
+    opacity: 0.6; 
+    margin: 8px 2px 2px; 
+}
+
+.timer-todo-date {
+    flex: none;
+    font-size: 11px;
+    padding: 2px 4px;
+    background: var(--background-secondary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    color: var(--text-muted);
+    cursor: pointer;
+    width: 116px;
+}
+
+.timer-todo-date:hover { 
+    color: var(--text-normal); 
+}
+
+.timer-todo-date::-webkit-calendar-picker-indicator { 
+    opacity: 0.6; 
+    cursor: pointer; 
+}
+
+.timer-todo-input-row .timer-todo-date { 
+    width: 128px; 
+}
+
+/* ======================================================
+   番茄钟月历（可翻月查看历史）
+====================================================== */
+.timer-cal-header { 
+    display: flex; 
+    align-items: center; 
+    gap: 5px; 
+    margin-bottom: 6px; 
+}
+
+.timer-cal-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    background: var(--background-secondary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.timer-cal-btn:hover:not(:disabled) { 
+    color: var(--text-normal); 
+    background: var(--background-modifier-hover); 
+}
+
+.timer-cal-btn:disabled { 
+    opacity: 0.35; 
+    cursor: default; 
+}
+
+.timer-cal-btn svg { 
+    width: 12px; 
+    height: 12px; 
+}
+
+.timer-cal-today-btn { 
+    width: auto; 
+    padding: 0 7px; 
+    font-size: 10px; 
+}
+
+.timer-cal-month { 
+    flex: 1; 
+    text-align: center; 
+    font-weight: 600; 
+    font-size: 12px; 
+}
+
+.timer-cal-grid { 
+    display: grid; 
+    grid-template-columns: repeat(7, 26px); 
+    justify-content: center; 
+    gap: 3px; 
+}
+
+.timer-cal-head { 
+    text-align: center; 
+    font-size: 9px; 
+    opacity: 0.5; 
+    padding-bottom: 2px; 
+}
+
+.timer-cal-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 1;
+    border-radius: 4px;
+    font-size: 10px;
+    background: var(--background-modifier-border);
+    color: var(--text-muted);
+    transition: transform 0.1s ease;
+}
+
+.timer-cal-cell:hover { 
+    transform: scale(1.12); 
+}
+
+.timer-cal-cell.lvl1 { background: rgba(229, 57, 53, 0.22); color: var(--text-normal); }
+.timer-cal-cell.lvl2 { background: rgba(229, 57, 53, 0.45); color: var(--text-normal); }
+.timer-cal-cell.lvl3 { background: rgba(229, 57, 53, 0.7); color: var(--text-on-accent); }
+.timer-cal-cell.lvl4 { background: rgba(229, 57, 53, 0.95); color: var(--text-on-accent); }
+
+.timer-cal-cell.is-future { 
+    opacity: 0.35; 
+}
+
+.timer-cal-legend { 
+    display: flex; 
+    align-items: center; 
+    gap: 4px; 
+    font-size: 9px; 
+    opacity: 0.75; 
+    margin: 4px 0 14px; 
+}
+
+.timer-cal-legend .legend-cell { 
+    width: 12px; 
+    height: 12px; 
+    aspect-ratio: auto; 
+    border-radius: 3px; 
+}
+
+.timer-cal-legend-note { 
+    margin-left: auto; 
+}
