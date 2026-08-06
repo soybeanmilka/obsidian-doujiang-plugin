@@ -1,9 +1,9 @@
 {
   "id": "sidebar-timer",
   "name": "豆浆的小插件",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "minAppVersion": "0.15.0",
-  "description": "豆浆的个人插件：番茄计时 + 待办计划 + 统计与日历。",
+  "description": "豆浆的个人插件：番茄计时（含休息倒计时）+ 待办计划 + 统计与日历。",
   "author": "豆浆",
   "authorUrl": "",
   "isDesktopOnly": true

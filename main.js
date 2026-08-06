@@ -25,6 +25,9 @@ module.exports = __toCommonJS(main_exports);
 var import_obsidian = require("obsidian");
 var DEFAULT_SETTINGS = {
   durationMinutes: 20,
+  breakMinutes: 5,
+  breakMessage: "\u4F11\u606F\u7ED3\u675F\uFF0C\u7EE7\u7EED\u52A0\u6CB9\uFF01",
+  sessionType: "work",
   message: "\u8BE5\u559D\u6C34\u4E86\uFF01",
   showStatusBar: true,
   floatingPosition: null,
@@ -48,6 +51,7 @@ var TimerPlugin = class extends import_obsidian.Plugin {
     this.timeLeft = 0;
     this.isRunning = false;
     this.isPaused = false;
+    this.sessionType = "work";
     // 用于应对“仅运行时模式”下电脑休眠带来的时间跳跃
     this.lastTickTime = 0;
     this.lastSaveTime = 0;
@@ -128,6 +132,7 @@ var TimerPlugin = class extends import_obsidian.Plugin {
   // 核心：重启后恢复倒计时逻辑
   resumeTimerIfRunning() {
     if (!this.settings.isRunning) return;
+    this.sessionType = this.settings.sessionType || "work";
     if (this.settings.isPaused) {
       this.timeLeft = this.settings.savedTimeLeft || 0;
       this.isPaused = true;
@@ -169,11 +174,31 @@ var TimerPlugin = class extends import_obsidian.Plugin {
   async startTimer() {
     this.isPaused = false;
     this.settings.isPaused = false;
+    this.sessionType = "work";
+    this.settings.sessionType = "work";
     if (this.floatingWindow) {
       this.floatingWindow.close();
       this.floatingWindow = null;
     }
     const durationMs = this.settings.durationMinutes * 60 * 1e3;
+    this.targetTime = Date.now() + durationMs;
+    this.timeLeft = Math.round(durationMs / 1e3);
+    this.settings.isRunning = true;
+    this.settings.savedTargetTime = this.targetTime;
+    this.settings.savedTimeLeft = this.timeLeft;
+    await this.saveSettings();
+    this._startInterval();
+  }
+  async startBreak() {
+    this.isPaused = false;
+    this.settings.isPaused = false;
+    this.sessionType = "break";
+    this.settings.sessionType = "break";
+    if (this.floatingWindow) {
+      this.floatingWindow.close();
+      this.floatingWindow = null;
+    }
+    const durationMs = this.settings.breakMinutes * 60 * 1e3;
     this.targetTime = Date.now() + durationMs;
     this.timeLeft = Math.round(durationMs / 1e3);
     this.settings.isRunning = true;
@@ -247,6 +272,10 @@ var TimerPlugin = class extends import_obsidian.Plugin {
     const seconds = this.timeLeft % 60;
     return `\u23F3 ${minutes}:${seconds.toString().padStart(2, "0")}`;
   }
+  _timerText() {
+    if (this.sessionType === "break") return this._formatTime().replace("\u23F3", "\uD83C\uDFD6\uFE0F");
+    return this._formatTime();
+  }
   tick() {
     const now = Date.now();
     const delta = now - this.lastTickTime;
@@ -259,7 +288,8 @@ var TimerPlugin = class extends import_obsidian.Plugin {
     if (this.panelModal) this.panelModal.updateTimer();
     if (this.timeLeft <= 0) {
       this.stopTimer();
-      this.triggerAlarm();
+      if (this.sessionType === "break") this.triggerBreakEnd();
+      else this.triggerAlarm();
       return;
     }
     if (now - this.lastSaveTime >= 1e4) {
@@ -277,6 +307,15 @@ var TimerPlugin = class extends import_obsidian.Plugin {
       this.floatingWindow = null;
     }
     this.floatingWindow = new TimerFloatingWindow(this, "alarm");
+    this.floatingWindow.open();
+  }
+  triggerBreakEnd() {
+    if (this.panelModal) this.panelModal.refreshData();
+    if (this.floatingWindow) {
+      this.floatingWindow.close();
+      this.floatingWindow = null;
+    }
+    this.floatingWindow = new TimerFloatingWindow(this, "breakEnd");
     this.floatingWindow.open();
   }
   openPanel(tab) {
@@ -341,14 +380,16 @@ var TimerPlugin = class extends import_obsidian.Plugin {
       const minutes = Math.floor(this.timeLeft / 60);
       const seconds = this.timeLeft % 60;
       const timeString = `${minutes}:${seconds.toString().padStart(2, "0")}`;
-      this.statusBarItemEl.setText(`\u23F3 ${timeString}`);
+      const runIcon = this.sessionType === "break" ? "\uD83C\uDFD6\uFE0F" : "\u23F3";
+      this.statusBarItemEl.setText(`${runIcon} ${timeString}`);
       return;
     }
     if (this.isPaused) {
       this.statusBarItemEl.style.display = "inline-block";
       const minutes = Math.floor(this.timeLeft / 60);
       const seconds = this.timeLeft % 60;
-      this.statusBarItemEl.setText(`\u23F8 ${minutes}:${seconds.toString().padStart(2, "0")}`);
+      const pauseIcon = this.sessionType === "break" ? "\uD83C\uDFD6\uFE0F" : "\u23F8";
+      this.statusBarItemEl.setText(`${pauseIcon} ${minutes}:${seconds.toString().padStart(2, "0")}`);
       return;
     }
     const entries = (this.settings.dailyStats || {})[this._todayKey()];
@@ -383,7 +424,7 @@ var TimerFloatingWindow = class {
     if (!this.currentDoc || !this.currentWin) return;
     this.windowEl = this.currentDoc.createElement("div");
     this.windowEl.addClass("timer-floating-window");
-    if (this.mode === "alarm") this.windowEl.addClass("timer-alarm-pop");
+    if (this.mode !== "running") this.windowEl.addClass("timer-alarm-pop");
     this.currentDoc.body.appendChild(this.windowEl);
     if (this.mode === "running") {
       const stopBtn = this.windowEl.createEl("button", { cls: ["timer-btn", "timer-btn-stop"] });
@@ -400,10 +441,24 @@ var TimerFloatingWindow = class {
         this.plugin.startTimer();
         this.close();
       });
-      const message = this.plugin.settings.message || "\u65F6\u95F4\u5230\uFF01";
+      const isBreak = this.mode === "breakEnd";
+      const message = isBreak
+        ? this.plugin.settings.breakMessage || "\u4F11\u606F\u7ED3\u675F\uFF0C\u7EE7\u7EED\u52A0\u6CB9\uFF01"
+        : this.plugin.settings.message || "\u65F6\u95F4\u5230\uFF01";
       this.textEl = this.windowEl.createDiv({ cls: "timer-floating-window-text" });
-      this.textEl.createSpan({ cls: "timer-celebrate", text: "\uD83C\uDF89" });
-      this.textEl.createSpan({ text: message });
+      this.textEl.createSpan({ cls: "timer-celebrate", text: isBreak ? "\uD83D\uDCAA" : "\uD83C\uDF89" });
+      const msgSpan = this.textEl.createSpan({ cls: "timer-alarm-message", text: message });
+      msgSpan.addEventListener("click", () => {
+        if (isBreak) this.plugin.startTimer();
+        else this.plugin.startBreak();
+        this.close();
+      });
+      if (!isBreak) {
+        this.textEl.createSpan({
+          cls: "timer-alarm-hint",
+          text: `\u23F1 \u70B9\u51FB\u4E0A\u65B9\u5F00\u59CB ${this.plugin.settings.breakMinutes} \u5206\u949F\u4F11\u606F`
+        });
+      }
     }
     const closeBtn = this.windowEl.createEl("button", { cls: ["timer-btn", "timer-btn-close"] });
     (0, import_obsidian.setIcon)(closeBtn, "x");
@@ -578,12 +633,12 @@ var TimerPanelModal = class extends import_obsidian.Modal {
     if (this.plugin.isRunning) {
       this.timerBtn.setText("暂停");
       this.timerBtn.addClass("is-running");
-      this.timerLabel.setText(this.plugin._formatTime());
+      this.timerLabel.setText(this.plugin._timerText());
       this.stopBtn.style.display = "";
     } else if (this.plugin.isPaused) {
       this.timerBtn.setText("继续");
       this.timerBtn.addClass("is-running");
-      this.timerLabel.setText(this.plugin._formatTime());
+      this.timerLabel.setText(this.plugin._timerText());
       this.stopBtn.style.display = "";
     } else {
       this.timerBtn.setText("开始");
@@ -899,6 +954,22 @@ var TimerSettingTab = class extends import_obsidian.PluginSettingTab {
         }
       });
     });
+    new import_obsidian.Setting(containerEl).setName("\u4F11\u606F\u65F6\u957F (\u5206\u949F)").setDesc("\u756A\u8304\u719F\u4E86\u4E4B\u540E\uFF0C\u70B9\u51FB\u63D0\u793A\u6587\u5B57\u5F00\u59CB\u4F11\u606F\u5012\u8BA1\u65F6\u7684\u957F\u5EA6\u3002").addText((text) => {
+      text.setPlaceholder("\u5982: 5");
+      text.inputEl.type = "number";
+      text.inputEl.min = "1";
+      text.setValue(this.plugin.settings.breakMinutes.toString()).onChange(async (value) => {
+        const parsed = Number(value);
+        if (!isNaN(parsed) && parsed > 0) {
+          this.plugin.settings.breakMinutes = parsed;
+          await this.plugin.saveSettings();
+        }
+      });
+    });
+    new import_obsidian.Setting(containerEl).setName("\u4F11\u606F\u7ED3\u675F\u63D0\u793A").setDesc("\u4F11\u606F\u5012\u8BA1\u65F6\u7ED3\u675F\u65F6\uFF0C\u60AC\u6D6E\u7A97\u4E2D\u663E\u793A\u7684\u6587\u5B57\uFF08\u70B9\u51FB\u5B83\u4F1A\u5F00\u59CB\u65B0\u4E00\u8F6E\u5DE5\u4F5C\uFF09\u3002").addText((text) => text.setPlaceholder("\u5982\uFF1A\u4F11\u606F\u7ED3\u675F\uFF0C\u7EE7\u7EED\u52A0\u6CB9\uFF01").setValue(this.plugin.settings.breakMessage).onChange(async (value) => {
+      this.plugin.settings.breakMessage = value;
+      await this.plugin.saveSettings();
+    }));
     new import_obsidian.Setting(containerEl).setName("\u63D0\u793A\u5185\u5BB9").setDesc("\u5012\u8BA1\u65F6\u7ED3\u675F\u65F6\uFF0C\u60AC\u6D6E\u7A97\u4E2D\u663E\u793A\u7684\u6587\u5B57\u3002").addText((text) => text.setPlaceholder("\u5982\uFF1A\u8BE5\u559D\u6C34\u4E86\uFF01").setValue(this.plugin.settings.message).onChange(async (value) => {
       this.plugin.settings.message = value;
       await this.plugin.saveSettings();
