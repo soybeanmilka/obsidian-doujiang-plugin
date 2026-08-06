@@ -410,6 +410,9 @@ var TimerFloatingWindow = class {
     this.currentDoc = null;
     this.currentWin = null;
     this.isDragging = false;
+    this.dragMoved = false;
+    this.dragStartX = 0;
+    this.dragStartY = 0;
     this.offsetX = 0;
     this.offsetY = 0;
     this.onPointerMove = this._onPointerMove.bind(this);
@@ -447,18 +450,19 @@ var TimerFloatingWindow = class {
         : this.plugin.settings.message || "\u65F6\u95F4\u5230\uFF01";
       this.textEl = this.windowEl.createDiv({ cls: "timer-floating-window-text" });
       this.textEl.createSpan({ cls: "timer-celebrate", text: isBreak ? "\uD83D\uDCAA" : "\uD83C\uDF89" });
-      const msgSpan = this.textEl.createSpan({ cls: "timer-alarm-message", text: message });
-      msgSpan.addEventListener("click", () => {
+      this.textEl.createSpan({ cls: "timer-alarm-message", text: message });
+      if (!isBreak) {
+        this.textEl.createSpan({
+          cls: "timer-alarm-hint",
+          text: `\u23F1 \u70B9\u51FB\u5F00\u59CB ${this.plugin.settings.breakMinutes} \u5206\u949F\u4F11\u606F`
+        });
+      }
+      this.textEl.addEventListener("click", (e) => {
+        if (e.target.closest(".timer-btn")) return;
         if (isBreak) this.plugin.startTimer();
         else this.plugin.startBreak();
         this.close();
       });
-      if (!isBreak) {
-        this.textEl.createSpan({
-          cls: "timer-alarm-hint",
-          text: `\u23F1 \u70B9\u51FB\u4E0A\u65B9\u5F00\u59CB ${this.plugin.settings.breakMinutes} \u5206\u949F\u4F11\u606F`
-        });
-      }
     }
     const closeBtn = this.windowEl.createEl("button", { cls: ["timer-btn", "timer-btn-close"] });
     (0, import_obsidian.setIcon)(closeBtn, "x");
@@ -482,11 +486,12 @@ var TimerFloatingWindow = class {
     this.windowEl.addEventListener("pointerdown", (e) => {
       if (e.target.closest(".timer-btn")) return;
       this.isDragging = true;
-      this.windowEl?.addClass("is-dragging");
+      this.dragMoved = false;
+      this.dragStartX = e.clientX;
+      this.dragStartY = e.clientY;
       const rect = this.windowEl.getBoundingClientRect();
       this.offsetX = e.clientX - rect.left;
       this.offsetY = e.clientY - rect.top;
-      this.windowEl?.setPointerCapture(e.pointerId);
       this.currentDoc?.addEventListener("pointermove", this.onPointerMove);
       this.currentDoc?.addEventListener("pointerup", this.onPointerUp);
     });
@@ -506,6 +511,11 @@ var TimerFloatingWindow = class {
   }
   _onPointerMove(e) {
     if (!this.isDragging || !this.windowEl) return;
+    if (!this.dragMoved) {
+      if (Math.abs(e.clientX - this.dragStartX) < 4 && Math.abs(e.clientY - this.dragStartY) < 4) return;
+      this.dragMoved = true;
+      this.windowEl.addClass("is-dragging");
+    }
     const newX = e.clientX - this.offsetX;
     const newY = e.clientY - this.offsetY;
     this.setPosition(newX, newY);
@@ -514,10 +524,9 @@ var TimerFloatingWindow = class {
     if (this.isDragging) {
       this.isDragging = false;
       this.windowEl?.removeClass("is-dragging");
-      this.windowEl?.releasePointerCapture(e.pointerId);
       this.currentDoc?.removeEventListener("pointermove", this.onPointerMove);
       this.currentDoc?.removeEventListener("pointerup", this.onPointerUp);
-      if (this.windowEl) {
+      if (this.windowEl && this.dragMoved) {
         const rect = this.windowEl.getBoundingClientRect();
         this.plugin.settings.floatingPosition = {
           x: rect.left,
