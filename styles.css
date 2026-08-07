@@ -444,6 +444,10 @@
     transition: width 0.5s ease;
 }
 
+.timer-progress-fill.is-break { 
+    background: linear-gradient(90deg, #5b8cff, #9d7bff); 
+}
+
 .timer-progress-fill.is-paused { 
     background: linear-gradient(90deg, #f5b942, #ffd98a); 
 }

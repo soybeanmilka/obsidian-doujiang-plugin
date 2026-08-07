@@ -40,6 +40,7 @@ var DEFAULT_SETTINGS = {
   countMode: "real",
   dailyStats: {},
   todos: [],
+  timeFormat: "auto",
   autoStartOnLaunch: false
   // 默认关闭自启
 };
@@ -267,10 +268,24 @@ var TimerPlugin = class extends import_obsidian.Plugin {
     await this.saveSettings();
     this._startInterval();
   }
+  _clockText(seconds) {
+    const total = Math.max(0, Math.round(seconds));
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = total % 60;
+    const mode = this.settings.timeFormat || "auto";
+    const useHours = mode === "hours" || (mode === "auto" && h > 0);
+    if (useHours) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+    return `${m}:${String(s).padStart(2, "0")}`;
+  }
+  _statText(minutes) {
+    const total = Math.round(minutes);
+    const h = Math.floor(total / 60);
+    const m = total % 60;
+    return h > 0 ? `${h} 小时 ${m} 分` : `${total} 分钟`;
+  }
   _formatTime() {
-    const minutes = Math.floor(this.timeLeft / 60);
-    const seconds = this.timeLeft % 60;
-    return `\u23F3 ${minutes}:${seconds.toString().padStart(2, "0")}`;
+    return `\u23F3 ${this._clockText(this.timeLeft)}`;
   }
   _timerText() {
     if (this.sessionType === "break") return this._formatTime().replace("\u23F3", "\uD83C\uDFD6\uFE0F");
@@ -377,26 +392,23 @@ var TimerPlugin = class extends import_obsidian.Plugin {
     }
     if (this.isRunning) {
       this.statusBarItemEl.style.display = "inline-block";
-      const minutes = Math.floor(this.timeLeft / 60);
-      const seconds = this.timeLeft % 60;
-      const timeString = `${minutes}:${seconds.toString().padStart(2, "0")}`;
+      const timeString = this._clockText(this.timeLeft);
       const runIcon = this.sessionType === "break" ? "\uD83C\uDFD6\uFE0F" : "\u23F3";
       this.statusBarItemEl.setText(`${runIcon} ${timeString}`);
       return;
     }
     if (this.isPaused) {
       this.statusBarItemEl.style.display = "inline-block";
-      const minutes = Math.floor(this.timeLeft / 60);
-      const seconds = this.timeLeft % 60;
+      const timeString = this._clockText(this.timeLeft);
       const pauseIcon = this.sessionType === "break" ? "\uD83C\uDFD6\uFE0F" : "\u23F8";
-      this.statusBarItemEl.setText(`${pauseIcon} ${minutes}:${seconds.toString().padStart(2, "0")}`);
+      this.statusBarItemEl.setText(`${pauseIcon} ${timeString}`);
       return;
     }
     const entries = (this.settings.dailyStats || {})[this._todayKey()];
     if (entries && entries.length > 0) {
       const totalMinutes = entries.reduce((s, e) => s + e.m, 0);
       this.statusBarItemEl.style.display = "inline-block";
-      this.statusBarItemEl.setText(`\uD83C\uDF45 今天 ${entries.length} 个 · ${totalMinutes} 分钟`);
+      this.statusBarItemEl.setText(`\uD83C\uDF45 今天 ${entries.length} 个 · ${this._statText(totalMinutes)}`);
       return;
     }
     this.statusBarItemEl.setText("");
@@ -652,7 +664,7 @@ var TimerPanelModal = class extends import_obsidian.Modal {
     } else {
       this.timerBtn.setText("开始");
       this.timerBtn.removeClass("is-running");
-      this.timerLabel.setText(`${this.plugin.settings.durationMinutes} 分钟`);
+      this.timerLabel.setText(this.plugin._clockText(this.plugin.settings.durationMinutes * 60));
       this.stopBtn.style.display = "none";
     }
     if (this.progressFill) {
@@ -660,6 +672,8 @@ var TimerPanelModal = class extends import_obsidian.Modal {
       let pct = total > 0 ? (this.plugin.timeLeft / total) * 100 : 100;
       if (!this.plugin.isRunning && !this.plugin.isPaused) pct = 100;
       this.progressFill.style.width = Math.max(0, Math.min(100, pct)) + "%";
+      if (this.plugin.sessionType === "break") this.progressFill.addClass("is-break");
+      else this.progressFill.removeClass("is-break");
       if (this.plugin.isPaused) this.progressFill.addClass("is-paused");
       else this.progressFill.removeClass("is-paused");
     }
@@ -735,7 +749,7 @@ var TimerPanelModal = class extends import_obsidian.Modal {
     const todaySection = contentEl.createDiv({ cls: "timer-stats-section" });
     todaySection.createDiv({ cls: "timer-stats-section-title", text: "今日" });
     const summary = todaySection.createDiv({ cls: "timer-stats-summary" });
-    summary.createDiv({ text: `今天（${todayKey}）：${today.length} 个番茄 · ${todayMinutes} 分钟` });
+    summary.createDiv({ text: `今天（${todayKey}）：${today.length} 个番茄 · ${this.plugin._statText(todayMinutes)}` });
     if (today.length > 0) {
       const times = today.map((e) => new Date(e.t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
       summary.createDiv({ cls: "timer-stats-times", text: "完成时间：" + times.join("、") });
@@ -759,7 +773,7 @@ var TimerPanelModal = class extends import_obsidian.Modal {
       if (i === days.length - 1) col.addClass("is-today");
       const bar = col.createDiv({
         cls: "timer-stats-bar",
-        attr: { title: `${day.key}：${day.minutes} 分钟` }
+        attr: { title: `${day.key}：${this.plugin._statText(day.minutes)}` }
       });
       bar.style.height = `${Math.max(4, Math.round((day.minutes / maxM) * 100))}%`;
       col.createDiv({ cls: "timer-stats-bar-label", text: day.label });
@@ -783,8 +797,8 @@ var TimerPanelModal = class extends import_obsidian.Modal {
     }
     const totalSection = contentEl.createDiv({ cls: "timer-stats-section" });
     totalSection.createDiv({ cls: "timer-stats-section-title", text: "合计" });
-    totalSection.createDiv({ cls: "timer-stats-total", text: `本月：${monthCount} 个番茄 · ${monthMinutes} 分钟` });
-    totalSection.createDiv({ cls: "timer-stats-total", text: `累计：${totalCount} 个番茄 · ${(totalMinutes / 60).toFixed(1)} 小时` });
+    totalSection.createDiv({ cls: "timer-stats-total", text: `本月：${monthCount} 个番茄 · ${this.plugin._statText(monthMinutes)}` });
+    totalSection.createDiv({ cls: "timer-stats-total", text: `累计：${totalCount} 个番茄 · ${this.plugin._statText(totalMinutes)}` });
 
     let confirmPending = false;
     const clearBtn = contentEl.createEl("button", { cls: "mod-warning", text: "清空统计" });
